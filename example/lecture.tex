@@ -1,0 +1,85 @@
+\documentclass[9pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+\usepackage{amsmath}
+\numberwithin{equation}{section}
+
+\definecolor{darkred}{rgb}{0.75,0.0,0.0}
+\definecolor{darkblue}{rgb}{0.0,0.0,0.75}
+\definecolor{darkgreen}{rgb}{0.0,0.55,0.0}
+\renewcommand\emph[1]{\textcolor{darkred}{#1}}
+\newcommand\emphb[1]{\textcolor{darkblue}{#1}}
+\newcommand\emphg[1]{\textcolor{darkgreen}{#1}}
+\newcommand\emphe[1]{\textit{\textcolor{darkblue}{#1}}}
+
+
+\newcommand\link[2]{\textcolor{darkblue}{$\rightarrow$ \href{#1}{#2} }}
+
+\newcommand\key[1]{\texttt{#1}}
+\newcommand\rkey[1]{\emph{\texttt{#1}}}
+
+\lstset{
+basicstyle=\footnotesize\ttfamily,
+frame=lines, 
+numbers=left, 
+numberstyle=\footnotesize, 
+commentstyle=\color{darkred},
+keywordstyle=\color{darkblue},
+identifierstyle=\color{black},
+stringstyle=\color{darkgreen},
+showstringspaces=false,
+language=python
+}
+
+
+\setbeamercolor{structure}{fg=darkblue}
+\setbeamertemplate{footline}{  
+\hrule 
+\begin{columns}
+    \begin{column}{0pt}
+        \vspace*{20pt} 
+    \end{column}
+    \begin{column}{0.25\textwidth}
+        \includegraphics[width=0.45\columnwidth]{./logo.png} 
+    \end{column}
+    \begin{column}{0.5\textwidth}
+        MyName, MyLecture 2014 
+    \end{column}
+    \begin{column}{0.1\textwidth}      
+        Slide \insertframenumber        
+    \end{column}
+\end{columns}
+}
+
+\setbeamertemplate{headline}{  
+\vspace*{5pt}
+\hspace*{5pt}
+\thesection. \insertsection, \insertsubsection
+\vspace*{5pt}
+\hrule 
+}
+
+\setbeamertemplate{navigation symbols}{}
+
+\setbeamertemplate{section in toc}[sections numbered]
+\setbeamertemplate{subsection in toc}[subsections numbered]
+
+\title{MyLecture 2014}
+\subtitle{MyLecture 2014}
+\author{MyName} 
+\institute{MyInstitute \\ MyDepartment }
+
+
+\begin{document}
+
+%--- the titlepage frame -------------------------%
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\input{body.tex}
+
+\end{document}
