@@ -3,6 +3,17 @@ import xml.etree.ElementTree as ET
 import sys
 import re
 
+def startTexEnv(env, opt=None):
+    if opt:
+        optstr = "[%s]"%opt
+    else:
+        optstr = ""
+        
+    return "\\begin{%s}%s\n"%(env, optstr)
+
+def stopTexEnv(env):
+    return "\\end{" + env + "}\n"
+
 def checkRemoveCommand(node, command):
     posa = node.attrib['TEXT'].find("#"+command)
     if posa >= 0:
@@ -24,9 +35,9 @@ def checkRemoveMarker(node, marker):
     return False
 
 def getTexContent(node):
-    #output simple text
+    
     text = node.attrib['TEXT'].encode('UTF-8')
-    res = text + "\n"
+    res = ""
     
     #output equation
     eqs = node.findall(".//hook[@EQUATION]")
@@ -35,6 +46,34 @@ def getTexContent(node):
             res += "\\begin{equation}\n"
             res += equation + "\n"
             res += "\\end{equation}\n"
+    if eqs != []:
+    	return res
+            
+    #output figure
+    figs = node.findall(".//hook[@URI]")
+    for fig in figs:
+            
+            figure = fig.attrib['URI']
+            scale = "0.7"
+            label = "none"
+            
+            meta_raws = node.findall("./node")
+            for meta_raw in meta_raws:
+            	meta = meta_raw.attrib['TEXT'].encode('UTF-8')
+
+            	if meta.startswith("scale:"):
+            		scale = meta[6:]
+            	if meta.startswith("label:"):
+            		label = "fig:" + meta[6:].strip()
+            
+            res = startTexEnv("figure") + \
+	          		"\\includegraphics[width=" + scale + "\\columnwidth]{" + figure + "} \n" + \
+            		"\caption{" + text + "} \n" + \
+            		"\label{" + label + "} \n" + \
+            		stopTexEnv("figure")
+            print res
+    if figs != []:
+    	return res
     
     #equation node
     if text.startswith("\latex"):
@@ -42,25 +81,21 @@ def getTexContent(node):
         res  = "\\begin{equation}\n"
         res += equation + "\n"
         res += "\\end{equation}\n"
+        return res
     
     #center line
     cl = checkRemoveCommand(node, "CL")
     if cl != None:
         cltext = node.attrib['TEXT'].encode('UTF-8')
         res = "\\centerline{%s}"%cltext
-    
+    	return res
+
+	#output simple text
+    text = node.attrib['TEXT'].encode('UTF-8')
+    res = text + "\n"
     return res
 
-def startTexEnv(env, opt=None):
-    if opt:
-        optstr = "[%s]"%opt
-    else:
-        optstr = ""
-        
-    return "\\begin{%s}%s\n"%(env, optstr)
 
-def stopTexEnv(env):
-    return "\\end{" + env + "}\n"
     
 #####################################################################
 #####################################################################
@@ -87,7 +122,7 @@ for chapter_node in nodes:
 
 	of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'])
 
-	of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
+	#of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
 	of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]}\n")
 	
 	section_nodes = chapter_node.findall("node")
@@ -121,7 +156,7 @@ for chapter_node in nodes:
 			itemize = False
 			enumerate = False
 	
-			contents = slide.findall(".//node")
+			contents = slide.findall(".node")
 
 			for content in contents:
 		
