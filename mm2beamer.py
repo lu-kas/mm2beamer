@@ -186,6 +186,10 @@ def processSlideNodes(section_node):
 	
 				of.write("\\href{file:%s}{%s}"%(mov_full_url, mov_string))
 	
+			note=checkRemoveCommand(content, "NOTE")
+			if note != None:
+				of.write("\\pdfnote{%s}"%note.encode('UTF-8'))
+	
 			listing=checkRemoveCommand(content, "LST")
 			if listing != None:
 				of.write(r"\lstinputlisting[title=%s]{%s}"%(ntpath.basename(listing), listing))
