@@ -2,6 +2,8 @@ import ntpath
 import xml.etree.ElementTree as ET
 import sys
 import re
+import os
+import urllib
 
 def startTexEnv(env, opt=None):
     if opt:
@@ -173,6 +175,16 @@ def processSlideNodes(section_node):
 				if not figscale: figscale = "0.9"
 
 				of.write("\\centerline{\\includegraphics[width=" + figscale + "\\columnwidth]{" + figure + "}}\n")
+	
+			mov=checkRemoveCommand(content, "MOV")
+			if mov != None:
+				split_content = mov.encode('UTF-8').split("|")
+				mov_file = split_content[0].strip()
+				mov_string = split_content[1].strip()
+				
+				mov_full_url = urllib.quote(os.path.abspath(mov_file), safe="%/:=&?~#+!$,;'@()*[]").replace("%", "\%")
+	
+				of.write("\\href{file:%s}{%s}"%(mov_full_url, mov_string))
 	
 			listing=checkRemoveCommand(content, "LST")
 			if listing != None:
