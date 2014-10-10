@@ -5,6 +5,9 @@ import re
 import os
 import urllib
 
+global_image_dir = "."
+global_movie_dir = "."
+
 def startTexEnv(env, opt=None):
     if opt:
         optstr = "[%s]"%opt
@@ -69,7 +72,7 @@ def getTexContent(node):
             		label = "fig:" + meta[6:].strip()
             
             res = startTexEnv("figure") + \
-	          		"\\includegraphics[width=" + scale + "\\columnwidth]{" + figure + "} \n" + \
+	          		"\\includegraphics[width=" + scale + "\\columnwidth]{" + global_image_dir + "/" + figure + "} \n" + \
             		"\caption{" + text + "} \n" + \
             		"\label{" + label + "} \n" + \
             		stopTexEnv("figure")
@@ -106,8 +109,13 @@ def processSlideNodes(section_node):
 	for slide in slide_nodes:
 		print "found slide  : ", slide.attrib['TEXT']
 
+		print_slide_id = True
 
 		title = slide.attrib['TEXT'].encode('UTF-8')
+		
+		if print_slide_id:
+			title = title + " -- \\texttt{ID\\char`_" + slide.attrib['ID'][3:] + "}"
+		
 		print "slide: ", title
 
 		section = checkRemoveCommand(slide, "SEC")
@@ -170,16 +178,37 @@ def processSlideNodes(section_node):
 	
 			figure=checkRemoveCommand(content, "FIG")
 			if figure != None:
-				figscale=checkRemoveCommand(content, "SCALE")
+				# legacy
+				fig_width=checkRemoveCommand(content, "SCALE")
 
-				if not figscale: figscale = "0.9"
+				split_content = figure.encode('UTF-8').split("|")
+				if len(split_content) > 0:
+					fig_file = split_content[0].strip()
+				else:
+					fig_file = None
+					return
+				if len(split_content) > 1:
+					fig_width = split_content[1].strip()
+				else:
+					fig_width = None
+				if len(split_content) > 2:
+					fig_height = split_content[2].strip()
+				else:
+					fig_height = None
 
-				of.write("\\centerline{\\includegraphics[width=" + figscale + "\\columnwidth]{" + figure + "}}\n")
+				if (not fig_width) and (not fig_height): fig_width = "0.9"
+
+				of.write("\\centerline{\\includegraphics[")
+				if fig_width:
+					of.write("width=" + fig_width + "\\columnwidth")
+				if fig_height:
+					of.write("height=" + fig_height + "\\textheight")
+				of.write("]{" + global_image_dir + "/" + fig_file + "}}\n")
 	
 			mov=checkRemoveCommand(content, "MOV")
 			if mov != None:
 				split_content = mov.encode('UTF-8').split("|")
-				mov_file = split_content[0].strip()
+				mov_file = global_movie_dir + "/" + split_content[0].strip()
 				mov_string = split_content[1].strip()
 				
 				mov_full_url = urllib.quote(os.path.abspath(mov_file), safe="%/:=&?~#+!$,;'@()*[]").replace("%", "\%")
@@ -296,21 +325,37 @@ print " - type  : ", global_type
 if (global_type != 'talk'):
 	for chapter_node in nodes:
 		print "found chapter: ", chapter_node.attrib['TEXT']
+		
+		show_chapter = False
+		global_image_dir = "."
+		global_movie_dir = "."
+		
+		for att_node in chapter_node.findall("./attribute"):
+			if att_node.attrib['NAME'] == 'show' and att_node.attrib['VALUE'] == 'on':
+				show_chapter = True
+			if att_node.attrib['NAME'] == 'imagedir':
+				global_image_dir = att_node.attrib['VALUE']
+			if att_node.attrib['NAME'] == 'moviedir':
+				global_movie_dir = att_node.attrib['VALUE']
+			
 
-		of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'])
+		if show_chapter:
+			of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'])
 
-		#of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
-		of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]}\n")
+			#of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
+			of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]}\n")
 	
-		section_nodes = chapter_node.findall("node")
-		for section_node in section_nodes:
+			section_nodes = chapter_node.findall("node")
+			for section_node in section_nodes:
 		
-			print "found section: ", section_node.attrib['TEXT']
+				print "found section: ", section_node.attrib['TEXT']
 		
-			of.write("\\subsection{%s}\n"%section_node.attrib['TEXT'])
-			of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]}\n")
+				of.write("\\subsection{%s}\n"%section_node.attrib['TEXT'])
+				of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]}\n")
 
-			processSlideNodes(section_node)
+				processSlideNodes(section_node)
+		else:
+			print "NOT SHOWING chapter %s"%chapter_node.attrib['TEXT']
 else:
 
 	processSlideNodes(root.findall(".")[0][0])
