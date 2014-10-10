@@ -98,6 +98,151 @@ def getTexContent(node):
 
     
 #####################################################################
+
+def processSlideNodes(section_node):
+	slide_nodes = section_node.findall("node")
+	for slide in slide_nodes:
+		print "found slide  : ", slide.attrib['TEXT']
+
+
+		title = slide.attrib['TEXT'].encode('UTF-8')
+		print "slide: ", title
+
+		section = checkRemoveCommand(slide, "SEC")
+		if section != None:
+			of.write("\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
+			of.write("\\part{"+section+"}\n")
+			of.write("\\frame{\\partpage}\n")
+			continue
+
+		of.write("\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
+		of.write(startTexEnv("frame", "fragile"))
+		of.write("\\frametitle{"+title+"}\n")
+
+		columns = False
+		itemize = False
+		enumerate = False
+
+		contents = slide.findall(".node")
+
+		for content in contents:
+	
+			## check for itemization item
+			if checkRemoveMarker(content, "* "):
+
+				if not itemize:
+					if enumerate:
+						enumerate = False
+						of.write(stopTexEnv("enumerate"))
+				
+					itemize = True
+					of.write(startTexEnv("itemize"))  
+		
+				of.write("  \\item ")# + getTexContent(content) + "\n")
+
+			elif itemize:
+				itemize = False
+				of.write(stopTexEnv("itemize"))
+		
+			## check for enumeration item
+			resume = checkRemoveCommand(content, "RESUME")
+			cont_enum = checkRemoveCommand(content, "CE")
+			if checkRemoveMarker(content, "1. "):
+		
+				if not enumerate:
+					if itemize:
+						itemize = False
+						of.write(stopTexEnv("itemize"))
+				
+					enumerate = True
+					of.write(startTexEnv("enumerate"))
+					if resume != None:
+						of.write(r"\setcounter{enumi}{%s}"%resume)
+		
+				of.write("  \\item ")# + getTexContent(content) + "\n")
+
+			elif enumerate and (cont_enum==None):
+				enumerate = False
+				of.write(stopTexEnv("enumerate"))
+
+	
+			figure=checkRemoveCommand(content, "FIG")
+			if figure != None:
+				figscale=checkRemoveCommand(content, "SCALE")
+
+				if not figscale: figscale = "0.9"
+
+				of.write("\\centerline{\\includegraphics[width=" + figscale + "\\columnwidth]{" + figure + "}}\n")
+	
+			listing=checkRemoveCommand(content, "LST")
+			if listing != None:
+				of.write(r"\lstinputlisting[title=%s]{%s}"%(ntpath.basename(listing), listing))
+	
+			code=checkRemoveCommand(content, "CODE")
+			code_noline=checkRemoveCommand(content, "CODE_NOLINE")        
+			if code != None:
+	#            of.write(startTexEnv("lstlisting", r"frame=leftline, basicstyle=\small\ttfamily, numbers=none"))
+				if code_noline==None:
+					of.write(startTexEnv("lstlisting"))
+				else:
+					of.write(startTexEnv("lstlisting", r"numbers=none"))
+				of.write(code)
+				of.write(stopTexEnv("lstlisting"))            
+
+			shell=checkRemoveCommand(content, "SHELL")
+			if shell != None:
+				of.write(startTexEnv("lstlisting", r"numbers=none"))
+				of.write(shell)
+				of.write(stopTexEnv("lstlisting"))            
+
+	
+			column = checkRemoveCommand(content, "SC")
+			if column != None:
+				if not columns:
+					columns = True
+					of.write(startTexEnv("columns"))
+				else:
+					of.write(stopTexEnv("column"))
+		
+				if column == "": column = "0.5"
+			
+				of.write("\n" + startTexEnv("column}{" + column + "\\textwidth"))
+		
+			column_end = checkRemoveCommand(content, "EC")
+			if column_end != None:
+				if columns:
+					columns = False
+					of.write(stopTexEnv("column"))
+					of.write(stopTexEnv("columns"))
+	
+			vspace = checkRemoveCommand(content, "VS")
+			if len(content) == 0: vspace = "0.025"
+			if vspace != None:
+				if vspace == "": vspace = "0.05"
+				of.write("\n\\vspace{%s\\textwidth}\n"%vspace)
+	
+			footline = checkRemoveCommand(content, "FL")
+			if footline != None:
+				of.write("\n\\vskip0pt plus 1filll \n {\\tiny " + footline.encode('UTF-8') + "}")
+	
+			## simple text
+			#if (itemize == False and enumerate == False):
+			of.write(getTexContent(content) + "\n\n")
+
+		if itemize:
+			of.write(stopTexEnv("itemize"))
+	
+		if enumerate:
+			of.write(stopTexEnv("enumerate"))
+
+		if columns:
+			of.write(stopTexEnv("column"))
+			of.write(stopTexEnv("columns"))
+
+		of.write(stopTexEnv("frame"))
+
+
+#####################################################################
 #####################################################################
 #####################################################################
 
@@ -114,163 +259,44 @@ if len(sys.argv) > 3:
     lec_no = int(sys.argv[3])
     print "preparing slides for lecture %d"%int(lec_no)
 
+global_author = 'no author name'
+global_title = 'no title'
+global_date = 'today'
+global_type = 'lecture'
 
-print nodes
+print "-- reading global attributes"
+for att_nodes in root.findall("./node/attribute"):
+	if att_nodes.attrib['NAME'] == 'author': global_author = att_nodes.attrib['VALUE']
+	if att_nodes.attrib['NAME'] == 'title': global_title = att_nodes.attrib['VALUE']	
+	if att_nodes.attrib['NAME'] == 'date': global_date = att_nodes.attrib['VALUE']		
+	if att_nodes.attrib['NAME'] == 'type': global_type = att_nodes.attrib['VALUE']	
 
-for chapter_node in nodes:
-	print "found chapter: ", chapter_node.attrib['TEXT']
+print " - author: ", global_author
+print " - title : ", global_title
+print " - date  : ", global_date
+print " - type  : ", global_type
 
-	of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'])
 
-	#of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
-	of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]}\n")
+if (global_type != 'talk'):
+	for chapter_node in nodes:
+		print "found chapter: ", chapter_node.attrib['TEXT']
+
+		of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'])
+
+		#of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
+		of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]}\n")
 	
-	section_nodes = chapter_node.findall("node")
-	for section_node in section_nodes:
+		section_nodes = chapter_node.findall("node")
+		for section_node in section_nodes:
 		
-		print "found section: ", section_node.attrib['TEXT']
+			print "found section: ", section_node.attrib['TEXT']
 		
-		of.write("\\subsection{%s}\n"%section_node.attrib['TEXT'])
-		of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]}\n")
+			of.write("\\subsection{%s}\n"%section_node.attrib['TEXT'])
+			of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]}\n")
 
-		slide_nodes = section_node.findall("node")
-		for slide in slide_nodes:
-			print "found slide  : ", slide.attrib['TEXT']
+			processSlideNodes(section_node)
+else:
 
-    
-			title = slide.attrib['TEXT'].encode('UTF-8')
-			print "slide: ", title
-
-			section = checkRemoveCommand(slide, "SEC")
-			if section != None:
-				of.write("\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-				of.write("\\part{"+section+"}\n")
-				of.write("\\frame{\\partpage}\n")
-				continue
-
-			of.write("\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
-			of.write(startTexEnv("frame", "fragile"))
-			of.write("\\frametitle{"+title+"}\n")
-
-			columns = False
-			itemize = False
-			enumerate = False
-	
-			contents = slide.findall(".node")
-
-			for content in contents:
-		
-				## check for itemization item
-				if checkRemoveMarker(content, "* "):
-
-					if not itemize:
-						if enumerate:
-							enumerate = False
-							of.write(stopTexEnv("enumerate"))
-					
-						itemize = True
-						of.write(startTexEnv("itemize"))  
-			
-					of.write("  \\item ")# + getTexContent(content) + "\n")
-	
-				elif itemize:
-					itemize = False
-					of.write(stopTexEnv("itemize"))
-			
-				## check for enumeration item
-				resume = checkRemoveCommand(content, "RESUME")
-				cont_enum = checkRemoveCommand(content, "CE")
-				if checkRemoveMarker(content, "1. "):
-			
-					if not enumerate:
-						if itemize:
-							itemize = False
-							of.write(stopTexEnv("itemize"))
-					
-						enumerate = True
-						of.write(startTexEnv("enumerate"))
-						if resume != None:
-							of.write(r"\setcounter{enumi}{%s}"%resume)
-			
-					of.write("  \\item ")# + getTexContent(content) + "\n")
-	
-				elif enumerate and (cont_enum==None):
-					enumerate = False
-					of.write(stopTexEnv("enumerate"))
-
-		
-				figure=checkRemoveCommand(content, "FIG")
-				if figure != None:
-					figscale=checkRemoveCommand(content, "SCALE")
-
-					if not figscale: figscale = "0.9"
-
-					of.write("\\centerline{\\includegraphics[width=" + figscale + "\\columnwidth]{" + figure + "}}\n")
-		
-				listing=checkRemoveCommand(content, "LST")
-				if listing != None:
-					of.write(r"\lstinputlisting[title=%s]{%s}"%(ntpath.basename(listing), listing))
-		
-				code=checkRemoveCommand(content, "CODE")
-				code_noline=checkRemoveCommand(content, "CODE_NOLINE")        
-				if code != None:
-		#            of.write(startTexEnv("lstlisting", r"frame=leftline, basicstyle=\small\ttfamily, numbers=none"))
-					if code_noline==None:
-						of.write(startTexEnv("lstlisting"))
-					else:
-						of.write(startTexEnv("lstlisting", r"numbers=none"))
-					of.write(code)
-					of.write(stopTexEnv("lstlisting"))            
-
-				shell=checkRemoveCommand(content, "SHELL")
-				if shell != None:
-					of.write(startTexEnv("lstlisting", r"numbers=none"))
-					of.write(shell)
-					of.write(stopTexEnv("lstlisting"))            
-
-		
-				column = checkRemoveCommand(content, "SC")
-				if column != None:
-					if not columns:
-						columns = True
-						of.write(startTexEnv("columns"))
-					else:
-						of.write(stopTexEnv("column"))
-			
-					if column == "": column = "0.5"
-				
-					of.write("\n" + startTexEnv("column}{" + column + "\\textwidth"))
-			
-				column_end = checkRemoveCommand(content, "EC")
-				if column_end != None:
-					if columns:
-						columns = False
-						of.write(stopTexEnv("column"))
-						of.write(stopTexEnv("columns"))
-		
-				vspace = checkRemoveCommand(content, "VS")
-				if vspace != None:
-					if vspace == "": vspace = "0.05"
-					of.write("\n\\vspace{%s\\textwidth}\n"%vspace)
-		
-				footline = checkRemoveCommand(content, "FL")
-				if footline != None:
-					of.write("\n\\vskip0pt plus 1filll \n {\\tiny " + footline.encode('UTF-8') + "}")
-		
-				## simple text
-				#if (itemize == False and enumerate == False):
-				of.write(getTexContent(content) + "\n\n")
-
-			if itemize:
-				of.write(stopTexEnv("itemize"))
-		
-			if enumerate:
-				of.write(stopTexEnv("enumerate"))
-	
-			if columns:
-				of.write(stopTexEnv("column"))
-				of.write(stopTexEnv("columns"))
-	
-			of.write(stopTexEnv("frame"))
+	processSlideNodes(root.findall(".")[0][0])
 
 of.close()
