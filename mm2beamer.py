@@ -107,7 +107,7 @@ def getTexContent(node):
 def processSlideNodes(section_node):
 	slide_nodes = section_node.findall("node")
 	for slide in slide_nodes:
-		print "found slide  : ", slide.attrib['TEXT']
+		print "found slide  : ", slide.attrib['TEXT'].encode('UTF-8')
 
 		print_slide_id = True
 
@@ -132,10 +132,16 @@ def processSlideNodes(section_node):
 		columns = False
 		itemize = False
 		enumerate = False
+		spacing = True
 
 		contents = slide.findall(".node")
 
 		for content in contents:
+	
+			## check for no spacing
+			in_spacing = checkRemoveCommand(content, "NS")
+			if in_spacing != None:
+				spacing = False
 	
 			## check for itemization item
 			if checkRemoveMarker(content, "* "):
@@ -240,7 +246,18 @@ def processSlideNodes(section_node):
 				of.write(shell)
 				of.write(stopTexEnv("lstlisting"))            
 
-	
+			ref = checkRemoveCommand(content, "REF")
+			if ref:
+				ref_ystart = "1.05 \\textheight"
+				ref_ywidth = "1.0 \\textheight"
+				ref_xoff   = "0.025 \\textwidth"
+				
+				of.write("\\begin{textblock*}{%s}(%s,%s)"%(ref_ywidth, ref_xoff, ref_ystart))
+				of.write("\\begin{rotate}{90}")
+				of.write("{\\footnotesize " + ref.encode('UTF-8') + "}")
+				of.write("\\end{rotate}")
+				of.write("\\end{textblock*}")
+				
 			column = checkRemoveCommand(content, "SC")
 			if column != None:
 				if not columns:
@@ -261,7 +278,7 @@ def processSlideNodes(section_node):
 					of.write(stopTexEnv("columns"))
 	
 			vspace = checkRemoveCommand(content, "VS")
-			if len(content) == 0: vspace = "0.025"
+			if len(content) == 0 and spacing: vspace = "0.015"
 			if vspace != None:
 				if vspace == "": vspace = "0.05"
 				of.write("\n\\vspace{%s\\textwidth}\n"%vspace)
@@ -308,19 +325,23 @@ global_author = 'no author name'
 global_title = 'no title'
 global_date = 'today'
 global_type = 'lecture'
+global_showall = 'off'
 
 print "-- reading global attributes"
 for att_nodes in root.findall("./node/attribute"):
-	if att_nodes.attrib['NAME'] == 'author': global_author = att_nodes.attrib['VALUE']
-	if att_nodes.attrib['NAME'] == 'title': global_title = att_nodes.attrib['VALUE']	
-	if att_nodes.attrib['NAME'] == 'date': global_date = att_nodes.attrib['VALUE']		
-	if att_nodes.attrib['NAME'] == 'type': global_type = att_nodes.attrib['VALUE']	
+    if att_nodes.attrib['NAME'] == 'author': global_author = att_nodes.attrib['VALUE']
+    if att_nodes.attrib['NAME'] == 'title': global_title = att_nodes.attrib['VALUE']
+    if att_nodes.attrib['NAME'] == 'date': global_date = att_nodes.attrib['VALUE']
+    if att_nodes.attrib['NAME'] == 'type': global_type = att_nodes.attrib['VALUE']
+    if att_nodes.attrib['NAME'] == 'showall': global_showall = att_nodes.attrib['VALUE']
+    if att_nodes.attrib['NAME'] == 'imagedir': global_image_dir = att_nodes.attrib['VALUE']	
+    if att_nodes.attrib['NAME'] == 'moviedir': global_movie_dir = att_nodes.attrib['VALUE']	
 
-print " - author: ", global_author
-print " - title : ", global_title
-print " - date  : ", global_date
-print " - type  : ", global_type
-
+print " - author  : ", global_author
+print " - title   : ", global_title
+print " - date    : ", global_date
+print " - type    : ", global_type
+print " - shwoall : ", global_showall
 
 if (global_type != 'talk'):
 	for chapter_node in nodes:
@@ -331,7 +352,7 @@ if (global_type != 'talk'):
 		global_movie_dir = "."
 		
 		for att_node in chapter_node.findall("./attribute"):
-			if att_node.attrib['NAME'] == 'show' and att_node.attrib['VALUE'] == 'on':
+			if (att_node.attrib['NAME'] == 'show' and att_node.attrib['VALUE'] == 'on') or (global_showall == 'on') :
 				show_chapter = True
 			if att_node.attrib['NAME'] == 'imagedir':
 				global_image_dir = att_node.attrib['VALUE']
@@ -340,7 +361,7 @@ if (global_type != 'talk'):
 			
 
 		if show_chapter:
-			of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'])
+			of.write("\\section{%s}\n"%chapter_node.attrib['TEXT'].encode('UTF-8'))
 
 			#of.write("\\frame{\\tableofcontents[sectionstyle=show/show,subsectionstyle=show/show/hide]}\n")	
 			of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]}\n")
@@ -348,9 +369,9 @@ if (global_type != 'talk'):
 			section_nodes = chapter_node.findall("node")
 			for section_node in section_nodes:
 		
-				print "found section: ", section_node.attrib['TEXT']
+				print "found section: ", section_node.attrib['TEXT'].encode('UTF-8')
 		
-				of.write("\\subsection{%s}\n"%section_node.attrib['TEXT'])
+				of.write("\\subsection{%s}\n"%section_node.attrib['TEXT'].encode('UTF-8'))
 				of.write("\\frame{\\tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]}\n")
 
 				processSlideNodes(section_node)
