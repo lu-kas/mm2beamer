@@ -8,13 +8,15 @@ import urllib
 global_image_dir = "."
 global_movie_dir = "."
 
-def startTexEnv(env, opt=None):
+def startTexEnv(env, opt=None, secarg=None):
+    res = "\\begin{%s}"%env
     if opt:
-        optstr = "[%s]"%opt
-    else:
-        optstr = ""
-        
-    return "\\begin{%s}%s\n"%(env, optstr)
+        res += "[%s]"%opt
+    if secarg:
+        res += "{%s}"%secarg
+    res += "\n"
+    
+    return res
 
 def stopTexEnv(env):
     return "\\end{" + env + "}\n"
@@ -109,7 +111,7 @@ def processSlideNodes(section_node):
 	for slide in slide_nodes:
 		print "found slide  : ", slide.attrib['TEXT'].encode('UTF-8')
 
-		print_slide_id = True
+		print_slide_id = False
 
 		title = slide.attrib['TEXT'].encode('UTF-8')
 		
@@ -132,6 +134,7 @@ def processSlideNodes(section_node):
 		columns = False
 		itemize = False
 		enumerate = False
+		table = False
 		spacing = True
 
 		contents = slide.findall(".node")
@@ -143,6 +146,29 @@ def processSlideNodes(section_node):
 			if in_spacing != None:
 				spacing = False
 	
+			if table:
+				spacing = False
+                
+			## check for table start
+			table_command = checkRemoveCommand(content, "TABLE")
+			if table_command != None:
+				table = True
+				spacing = False
+				table_options = table_command.encode('UTF-8').split("|")[1]
+				
+				print "start table", table_options
+				of.write(startTexEnv("centering"))
+				of.write(startTexEnv("tabular", secarg=table_options))
+                
+			## check for table end
+			table_command = checkRemoveCommand(content, "TE")
+			if table_command != None:
+				table = False
+				
+				print "stop table"
+				of.write(stopTexEnv("tabular"))  
+				of.write(stopTexEnv("centering"))  
+                
 			## check for itemization item
 			if checkRemoveMarker(content, "* "):
 
