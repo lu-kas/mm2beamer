@@ -1,12 +1,30 @@
+#!/usr/bin/env python
+
 import ntpath
 import xml.etree.ElementTree as ET
 import sys
 import re
 import os
 import urllib
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("mm_file", type=str,
+                    help="mindmap file to be parsed")
+parser.add_argument("tex_file", type=str,
+                    help="latex beamer body file to be created")
+parser.add_argument("-v", "--verbosity",
+                    help="increase output verbosity", action="store_true")
+parser.add_argument("-all", "--all",
+                    help="parse all slides", action="store_true")
+parser.add_argument("-nn", "--nonotes",
+                    help="create no notes", action="store_true")
+cmdl_args = parser.parse_args()
 
 global_image_dir = "."
 global_movie_dir = "."
+global_nonotes = 'off'
 
 def startTexEnv(env, opt=None, secarg=None):
     res = "\\begin{%s}"%env
@@ -248,12 +266,20 @@ def processSlideNodes(section_node):
 				of.write("\\href{file:%s}{%s}"%(mov_full_url, mov_string))
 	
 			note=checkRemoveCommand(content, "NOTE")
-			if note != None:
+			if (note != None) and (global_nonotes != 'on'):
+			#if note != None:
 				of.write("\\pdfnote{%s}"%note.encode('UTF-8'))
+			else:
+				print global_nonotes
 	
 			listing=checkRemoveCommand(content, "LST")
 			if listing != None:
-				of.write(r"\lstinputlisting[title=%s]{%s}"%(ntpath.basename(listing), listing))
+				split_content = listing.encode('UTF-8').split("|")
+				
+				selected_lines = ''
+				if len(split_content) == 3:
+					selected_lines = ', linerange={%s-%s}, firstnumber=%s'%(split_content[1], split_content[2], split_content[1])
+				of.write(r"\lstinputlisting[title=%s %s]{%s}"%(ntpath.basename(split_content[0]), selected_lines, split_content[0]))
 	
 			code=checkRemoveCommand(content, "CODE")
 			code_noline=checkRemoveCommand(content, "CODE_NOLINE")        
@@ -334,18 +360,13 @@ def processSlideNodes(section_node):
 #####################################################################
 #####################################################################
 
-tree = ET.parse(str(sys.argv[1]))
+tree = ET.parse(cmdl_args.mm_file)
 root = tree.getroot()
 
-of = open(str(sys.argv[2]), 'w')
+of = open(cmdl_args.tex_file, 'w')
 
 nodes = root.findall("*/node")
 slides = []
-
-lec_no = 0
-if len(sys.argv) > 3:
-    lec_no = int(sys.argv[3])
-    print "preparing slides for lecture %d"%int(lec_no)
 
 global_author = 'no author name'
 global_title = 'no title'
@@ -363,11 +384,17 @@ for att_nodes in root.findall("./node/attribute"):
     if att_nodes.attrib['NAME'] == 'imagedir': global_image_dir = att_nodes.attrib['VALUE']	
     if att_nodes.attrib['NAME'] == 'moviedir': global_movie_dir = att_nodes.attrib['VALUE']	
 
+if cmdl_args.all:
+    global_showall = 'on'
+if cmdl_args.nonotes:
+    global_nonotes = 'on'
+
 print " - author  : ", global_author
 print " - title   : ", global_title
 print " - date    : ", global_date
 print " - type    : ", global_type
 print " - shwoall : ", global_showall
+print " - no notes: ", global_nonotes
 
 if (global_type != 'talk'):
 	for chapter_node in nodes:
